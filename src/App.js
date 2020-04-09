@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Filter from './components/Filter'
 import PersonForm from './components/PersonForm'
 import Persons from './components/Persons'
-import axios from 'axios'
-
+import personService from './services/persons'
 
 
 
@@ -14,23 +13,16 @@ const App = function () {
   const [newNameInput, setNewNameInput] = useState('')
   const [newNbInput, setNewNbInput] = useState('')
   const [filterInput, setFilterInput] = useState('')
-  
-  useEffect(() => {
-    axios
-    .get("http://localhost:3001/persons")
-    .then(response => {
-      setPersons(response.data)
-    })
-    // or
-    // const fetchData = async () => {
-    //   const result = await axios('http://localhost:3001/persons')
-    //   setPersons(result.data)
-    // }
-    // fetchData()
-  }, [])
-  
 
-  
+  useEffect(() => {
+    personService.getAll().then(initialPersons => {
+      console.log(initialPersons)
+      setPersons(initialPersons)
+    })
+  }, [])
+
+
+
 
 
   // Input Handlers of controlled components
@@ -41,21 +33,41 @@ const App = function () {
 
   //Event Listners
   const addPerson = (event) => {
-    if (persons.some(person => person.name === newNameInput)) {
-      alert(`${newNameInput} is already added to phonebook`)
+    event.preventDefault()
+    const newPerson = {
+      name: newNameInput,
+      number: newNbInput,
+    }
+    const personToUpdate = persons.find(person => person.name === newNameInput)
+    if (personToUpdate) {
+      const isAnUpdate = window.confirm(`"${personToUpdate.name}" is already added to the phonebook, replace the old number with a new one?`)
+      if (isAnUpdate) {
+        personService.update(personToUpdate.id, newPerson).then(personUpdated => {
+          setPersons(persons.map(person => person.id === personToUpdate.id ? personUpdated : person))
+        })
+      }
     }
     else {
-      event.preventDefault()
-      const newPerson = {
-        name: newNameInput,
-        number: newNbInput,
-        // id: persons.length+1
-      }
-      setPersons([...persons, newPerson])
+      personService
+        .create(newPerson)
+        .then(returnedPerson => {
+          // functional form of setState
+          setPersons(prev => [...prev, returnedPerson])
+        })
     }
-
     setNewNameInput('')
     setNewNbInput('')
+  }
+
+  const deletePerson = (name) => {
+    const personToDelete = persons.find(person => person.name === name)
+    const isSure = window.confirm(`Do you really want to delete ${personToDelete.name}`)
+    if (isSure) {
+      personService.delete(personToDelete.id).then(() => {
+        alert(`"${personToDelete.name}" has been deleted`)
+      })
+      setPersons(persons.filter(person => personToDelete.name !== person.name))
+    }
   }
 
   //  Filters
@@ -69,7 +81,7 @@ const App = function () {
       <PersonForm addPerson={addPerson} newNameInput={newNameInput} handleNameInputChange={handleNameInputChange}
         newNbInput={newNbInput} handleNbInputChange={handleNbInputChange} />
       <h2>Numbers</h2>
-      <Persons persons={personsToDisplay} />
+      <Persons persons={personsToDisplay} deletePerson={deletePerson} />
     </div>
   )
 }
