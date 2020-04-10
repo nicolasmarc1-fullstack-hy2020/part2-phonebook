@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Filter from './components/Filter'
 import PersonForm from './components/PersonForm'
 import Persons from './components/Persons'
+import Notification from './components/Notification'
 import personService from './services/persons'
 
 
@@ -13,6 +14,7 @@ const App = function () {
   const [newNameInput, setNewNameInput] = useState('')
   const [newNbInput, setNewNbInput] = useState('')
   const [filterInput, setFilterInput] = useState('')
+  const [notification, setNotification] = useState(null)
 
   useEffect(() => {
     personService.getAll().then(initialPersons => {
@@ -38,12 +40,19 @@ const App = function () {
       name: newNameInput,
       number: newNbInput,
     }
-    const personToUpdate = persons.find(person => person.name === newNameInput)
+    const personToUpdate = persons.find(person =>  person.name.toLowerCase() === newNameInput.toLowerCase())
     if (personToUpdate) {
       const isAnUpdate = window.confirm(`"${personToUpdate.name}" is already added to the phonebook, replace the old number with a new one?`)
       if (isAnUpdate) {
         personService.update(personToUpdate.id, newPerson).then(personUpdated => {
           setPersons(persons.map(person => person.id === personToUpdate.id ? personUpdated : person))
+        }).catch((e)=> {
+          setNotification({
+            message: "information of "+personToUpdate.name+" has already been removed from server",
+            type: "notification error"
+          })
+          setTimeout(()=>setNotification(null) , 3000)
+          setPersons(persons.filter(person => person.id !== personToUpdate.id))
         })
       }
     }
@@ -53,6 +62,12 @@ const App = function () {
         .then(returnedPerson => {
           // functional form of setState
           setPersons(prev => [...prev, returnedPerson])
+          
+          setNotification({
+            message: "Added "+returnedPerson.name,
+            type: "notification confirmation"
+          })
+          setTimeout(()=>setNotification(null) , 3000)
         })
     }
     setNewNameInput('')
@@ -76,6 +91,7 @@ const App = function () {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification notification={notification}/>
       <Filter filterInput={filterInput} handleFilter={handleFilter} />
       <h2>Add a new contact</h2>
       <PersonForm addPerson={addPerson} newNameInput={newNameInput} handleNameInputChange={handleNameInputChange}
